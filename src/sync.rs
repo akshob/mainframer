@@ -61,7 +61,7 @@ pub struct PullErr {
     pub message: String,
 }
 
-pub fn push(local_dir_absolute_path: &Path, config: &Config, ignore: &Ignore, verbose: bool) -> Result<PushOk, PushErr> {
+pub fn push(local_dir_absolute_path: &Path, config: &Config, ignore: &Option<Ignore>, verbose: bool) -> Result<PushOk, PushErr> {
     let start_time = Instant::now();
 
     let mut command = Command::new("rsync");
@@ -77,8 +77,9 @@ pub fn push(local_dir_absolute_path: &Path, config: &Config, ignore: &Ignore, ve
         command.arg("--verbose");
     }
 
-    apply_exclude_from(&mut command, &ignore.common_ignore_file);
-    apply_exclude_from(&mut command, &ignore.local_ignore_file);
+    if let Some(ignore) = ignore {
+        apply_exclude_from(&mut command, ignore.push());
+    }
 
     command
         .arg("--rsh=ssh")
@@ -101,14 +102,14 @@ pub fn push(local_dir_absolute_path: &Path, config: &Config, ignore: &Ignore, ve
     }
 }
 
-pub fn pull(local_dir_absolute_path: &Path, config: Config, ignore: Ignore, pull_mode: &PullMode, remote_command_finished_signal: BusReader<Result<RemoteCommandOk, RemoteCommandErr>>, verbose: bool) -> Receiver<Result<PullOk, PullErr>> {
+pub fn pull(local_dir_absolute_path: &Path, config: Config, ignore: Option<Ignore>, pull_mode: &PullMode, remote_command_finished_signal: BusReader<Result<RemoteCommandOk, RemoteCommandErr>>, verbose: bool) -> Receiver<Result<PullOk, PullErr>> {
     match pull_mode {
         PullMode::Serial => pull_serial(local_dir_absolute_path.to_path_buf(), config, ignore, remote_command_finished_signal, verbose),
         PullMode::Parallel => pull_parallel(local_dir_absolute_path.to_path_buf(), config, ignore, PullMode::PARALLEL_DURATION, remote_command_finished_signal, verbose)
     }
 }
 
-fn pull_serial(local_dir_absolute_path: PathBuf, config: Config, ignore: Ignore, mut remote_command_finished_rx: BusReader<Result<RemoteCommandOk, RemoteCommandErr>>, verbose: bool) -> Receiver<Result<PullOk, PullErr>> {
+fn pull_serial(local_dir_absolute_path: PathBuf, config: Config, ignore: Option<Ignore>, mut remote_command_finished_rx: BusReader<Result<RemoteCommandOk, RemoteCommandErr>>, verbose: bool) -> Receiver<Result<PullOk, PullErr>> {
     let (pull_finished_tx, pull_finished_rx): (Sender<Result<PullOk, PullErr>>, Receiver<Result<PullOk, PullErr>>) = unbounded();
 
     #[allow(unused_must_use)] // We don't handle remote_command_result, in any case we need to pull after it.
@@ -125,7 +126,7 @@ fn pull_serial(local_dir_absolute_path: PathBuf, config: Config, ignore: Ignore,
     pull_finished_rx
 }
 
-fn pull_parallel(local_dir_absolute_path: PathBuf, config: Config, ignore: Ignore, pause_between_pulls: Duration, mut remote_command_finished_signal: BusReader<Result<RemoteCommandOk, RemoteCommandErr>>, verbose: bool) -> Receiver<Result<PullOk, PullErr>> {
+fn pull_parallel(local_dir_absolute_path: PathBuf, config: Config, ignore: Option<Ignore>, pause_between_pulls: Duration, mut remote_command_finished_signal: BusReader<Result<RemoteCommandOk, RemoteCommandErr>>, verbose: bool) -> Receiver<Result<PullOk, PullErr>> {
     let (pull_finished_tx, pull_finished_rx): (Sender<Result<PullOk, PullErr>>, Receiver<Result<PullOk, PullErr>>) = unbounded();
     let start_time = Instant::now();
 
@@ -174,7 +175,7 @@ fn pull_parallel(local_dir_absolute_path: PathBuf, config: Config, ignore: Ignor
     pull_finished_rx
 }
 
-fn _pull(local_dir_absolute_path: &Path, config: &Config, ignore: &Ignore, verbose: bool) -> Result<PullOk, PullErr> {
+fn _pull(local_dir_absolute_path: &Path, config: &Config, ignore: &Option<Ignore>, verbose: bool) -> Result<PullOk, PullErr> {
     let start_time = Instant::now();
 
     let mut command = Command::new("rsync");
@@ -188,8 +189,9 @@ fn _pull(local_dir_absolute_path: &Path, config: &Config, ignore: &Ignore, verbo
         command.arg("--verbose");
     }
 
-    apply_exclude_from(&mut command, &ignore.common_ignore_file);
-    apply_exclude_from(&mut command, &ignore.remote_ignore_file);
+    if let Some(ignore) = ignore {
+        apply_exclude_from(&mut command, ignore.pull());
+    }
 
     command
         .arg("--rsh=ssh")
@@ -215,13 +217,10 @@ pub fn project_dir_on_remote_machine(local_dir_absolute_path: &Path) -> String {
     format!("~/mainframer{}", local_dir_absolute_path.to_string_lossy())
 }
 
-fn apply_exclude_from(rsync_command: &mut Command, exclude_file: &Option<PathBuf>) {
-    match exclude_file {
-        Some(ref value) => {
-            rsync_command.arg(format!("--exclude-from={}", value.to_string_lossy()));
-        }
-        None => ()
-    };
+fn apply_exclude_from(rsync_command: &mut Command, exclude_file: Vec<String>) {
+    exclude_file.into_iter().for_each(|glob| {
+        rsync_command.arg(format!("--exclude={}", glob));
+    });
 }
 
 fn execute_rsync(rsync: &mut Command, verbose_out: bool) -> Result<(), String> {

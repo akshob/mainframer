@@ -1,40 +1,43 @@
+use std::fs;
 use std::path::Path;
-use std::path::PathBuf;
 
-#[derive(Clone)]
+use serde::Deserialize;
+
+#[derive(Clone, Deserialize)]
 pub struct Ignore {
-    pub common_ignore_file: Option<PathBuf>,
-    pub local_ignore_file: Option<PathBuf>,
-    pub remote_ignore_file: Option<PathBuf>,
+    push: Option<Vec<String>>,
+    pull: Option<Vec<String>>,
+    both: Option<Vec<String>>,
 }
 
 impl Ignore {
-    pub fn from_working_dir(working_dir: &Path) -> Ignore {
-        let mut common_ignore_file = working_dir.to_path_buf();
-        common_ignore_file.push(".mainframer/ignore");
-
-        let mut local_ignore_file = working_dir.to_path_buf();
-        local_ignore_file.push(".mainframer/localignore");
-
-        let mut remote_ignore_file = working_dir.to_path_buf();
-        remote_ignore_file.push(".mainframer/remoteignore");
-
-        Ignore {
-            common_ignore_file: if common_ignore_file.exists() {
-                Some(common_ignore_file.to_path_buf())
-            } else {
-                None
-            },
-            local_ignore_file: if local_ignore_file.exists() {
-                Some(local_ignore_file.to_path_buf())
-            } else {
-                None
-            },
-            remote_ignore_file: if remote_ignore_file.exists() {
-                Some(remote_ignore_file.to_path_buf())
-            } else {
-                None
-            },
+    #[allow(dead_code)]
+    pub fn new(push: Option<Vec<String>>, pull: Option<Vec<String>>, both: Option<Vec<String>>) -> Self {
+        Self {
+            push,
+            pull,
+            both
         }
+    }
+
+    pub fn from_working_dir(working_dir: &Path) -> Option<Self> {
+        let file = working_dir.to_path_buf().join(".mainframer").join("ignore.yml");
+        if let Ok(contents) = fs::read_to_string(file) {
+            Self::from_file_contents(contents).ok()
+        } else {
+            None
+        }
+    }
+
+    pub fn from_file_contents(contents: String) -> Result<Self, String> {
+        serde_yaml::from_str::<Ignore>(&contents).map_err(|x| x.to_string())
+    }
+
+    pub fn push(&self) -> Vec<String> {
+        [self.push.clone().unwrap_or_default(), self.both.clone().unwrap_or_default()].concat()
+    }
+
+    pub fn pull(&self) -> Vec<String> {
+        [self.pull.clone().unwrap_or_default(), self.both.clone().unwrap_or_default()].concat()
     }
 }
