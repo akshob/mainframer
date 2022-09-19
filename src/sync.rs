@@ -231,7 +231,7 @@ fn execute_rsync(rsync: &mut Command, verbose_out: bool) -> Result<(), String> {
         let mut stderr = Vec::new();
 
         if !status.success() {
-            let _ = child.stderr.take().expect("Failed to get stderr from rsync").read(&mut stderr);
+            let _ = child.stderr.take().expect("Failed to get stderr from rsync").read_to_end(&mut stderr);
         }
 
         Ok(Output {
