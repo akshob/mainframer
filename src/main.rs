@@ -42,7 +42,7 @@ fn main() {
         Ok(value) => value
     };
 
-    let ignore = Ignore::from_working_dir(&local_dir_absolute_path.clone());
+    let ignore = Ignore::from_working_dir(&local_dir_absolute_path);
 
     println!("Pushing...");
 
@@ -59,7 +59,7 @@ fn main() {
     let mut remote_command_readers = remote_command::execute_remote_command(
         args.command(),
         config.clone(),
-        sync::project_dir_on_remote_machine(&local_dir_absolute_path.clone()),
+        sync::project_dir_on_remote_machine(&local_dir_absolute_path),
         2
     );
 

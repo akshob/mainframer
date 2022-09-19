@@ -48,7 +48,7 @@ pub struct Remote {
     pub host: String,
 }
 
-#[derive(Debug, PartialEq, Clone, Deserialize)]
+#[derive(Debug, Eq, PartialEq, Clone, Deserialize)]
 pub struct Push {
     #[serde(default = "Push::default_compression")]
     pub compression: i8,
