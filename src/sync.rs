@@ -1,6 +1,9 @@
+use std::io::Read;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
+use std::process::Output;
+use std::process::Stdio;
 use std::sync::mpsc::TryRecvError::*;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -66,6 +69,7 @@ pub fn push(local_dir_absolute_path: &Path, config: &Config, ignore: &Ignore) ->
     command
         .arg("--archive")
         .arg("--delete")
+        .arg("--verbose")
         // Create (if not exists) project dir on remote machine.
         .arg(format!("--rsync-path=mkdir -p {} && rsync", project_dir_on_remote_machine(local_dir_absolute_path)))
         .arg(format!("--compress-level={}", config.push.compression));
@@ -83,7 +87,7 @@ pub fn push(local_dir_absolute_path: &Path, config: &Config, ignore: &Ignore) ->
         project_dir_on_remote_machine = project_dir_on_remote_machine(local_dir_absolute_path))
     );
 
-    match execute_rsync(&mut command) {
+    match execute_rsync(&mut command, false) {
         Err(reason) => Err(PushErr {
             duration: start_time.elapsed(),
             message: reason,
@@ -189,7 +193,7 @@ fn _pull(local_dir_absolute_path: &Path, config: &Config, ignore: &Ignore) -> Re
         )
         .arg("./");
 
-    match execute_rsync(&mut command) {
+    match execute_rsync(&mut command, false) {
         Err(reason) => Err(PullErr {
             duration: start_time.elapsed(),
             message: reason
@@ -213,8 +217,25 @@ fn apply_exclude_from(rsync_command: &mut Command, exclude_file: &Option<PathBuf
     };
 }
 
-fn execute_rsync(rsync: &mut Command) -> Result<(), String> {
-    let result = rsync.output();
+fn execute_rsync(rsync: &mut Command, verbose_out: bool) -> Result<(), String> {
+    let result = if verbose_out {
+        let mut child = rsync.stderr(Stdio::piped()).spawn().unwrap();
+        let status = child.wait();
+        let status = status.expect("rsync failed to run");
+        let mut stderr = Vec::new();
+
+        if !status.success() {
+            let _ = child.stderr.take().expect("Failed to get stderr from rsync").read(&mut stderr);
+        }
+
+        Ok(Output {
+            status,
+            stdout: Vec::new(),
+            stderr,
+        })
+    } else {
+        rsync.output()
+    };
 
     match result {
         Err(_) => Err(String::from("Generic rsync error.")), // Rust doc doesn't really say when can an error occur.
