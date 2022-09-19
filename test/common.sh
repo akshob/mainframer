@@ -39,7 +39,7 @@ COMMON_IGNORE_FILE="$BUILD_DIR/.mainframer/ignore"
 
 # TODO test both debug and release builds.
 # shellcheck disable=SC2034
-MAINFRAMER_EXECUTABLE="$DIR/../target/debug/mainframer"
+MAINFRAMER_EXECUTABLE="$DIR/../target/debug/mainframer --"
 ###
 
 function buildMainframer {
