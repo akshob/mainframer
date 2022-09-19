@@ -11,6 +11,7 @@ use config::*;
 use ignore::*;
 use sync::{PullMode};
 use time::*;
+use clap::Parser;
 
 mod args;
 mod config;
@@ -25,12 +26,8 @@ fn main() {
     let total_start = Instant::now();
 
     println!(":: Mainframer v{}\n", env!("CARGO_PKG_VERSION"));
-    let raw_args: Vec<String> = env::args().skip(1).collect();
 
-    let args = match Args::parse(raw_args.as_ref()) {
-        Err(message) => exit_with_error(&message, 1),
-        Ok(value) => value,
-    };
+    let args = Args::parse();
 
     let local_dir_absolute_path = match env::current_dir() {
         Err(_) => exit_with_error("Could not resolve working directory, make sure it exists and user has enough permissions to work with it.", 1),
@@ -60,7 +57,7 @@ fn main() {
     }
 
     let mut remote_command_readers = remote_command::execute_remote_command(
-        args.command,
+        args.command(),
         config.clone(),
         sync::project_dir_on_remote_machine(&local_dir_absolute_path),
         2
