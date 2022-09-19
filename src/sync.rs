@@ -47,6 +47,16 @@ impl Default for PullMode {
     }
 }
 
+impl PullMode {
+    pub const PARALLEL_DURATION: Duration = Duration::from_millis(500);
+}
+
+impl Default for PullMode {
+    fn default() -> Self {
+        Self::Serial
+    }
+}
+
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct PullOk {
     pub duration: Duration,
