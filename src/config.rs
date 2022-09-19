@@ -43,9 +43,11 @@ impl Config {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Deserialize)]
+#[derive(Debug, Default, PartialEq, Clone, Deserialize)]
 pub struct Remote {
     pub host: String,
+    pub user: Option<String>,
+    pub port: Option<String>,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Deserialize)]
@@ -109,6 +111,7 @@ pull:
         assert_eq!(Config::from_file_contents(content), Ok(Config {
             remote: Remote {
                 host: String::from("computer1"),
+                ..Default::default()
             },
             push: Push {
                 compression: 5
@@ -135,6 +138,7 @@ pull:
         assert_eq!(Config::from_file_contents(content), Ok(Config {
             remote: Remote {
                 host: String::from("computer1"),
+                ..Default::default()
             },
             push: Push {
                 compression: 5
@@ -161,6 +165,7 @@ pull:
         assert_eq!(Config::from_file_contents(content), Ok(Config {
             remote: Remote {
                 host: String::from("computer1"),
+                ..Default::default()
             },
             push: Push {
                 compression: 5
@@ -181,6 +186,7 @@ remote:
         assert_eq!(Config::from_file_contents(content), Ok(Config {
             remote: Remote {
                 host: String::from("computer1"),
+                ..Default::default()
             },
             push: Push::default(),
             pull: Pull::default(),
@@ -204,7 +210,10 @@ remote:
 ", destination, compression_level);
 
                 assert_eq!(Config::from_file_contents(&content), Ok(Config {
-                    remote: Remote { host: "computer1".to_string() },
+                    remote: Remote { 
+                        host: "computer1".to_string(), 
+                        ..Default::default() 
+                    },
                     push: if destination == "push" {
                         Push {
                             compression: compression_level,
@@ -275,7 +284,10 @@ pull:
   mode: parallel
 ";
         assert_eq!(Config::from_file_contents(content), Ok(Config {
-            remote: Remote { host: "computer1".to_string() },
+            remote: Remote { 
+                host: "computer1".to_string(),
+                ..Default::default()
+            },
             push: Push::default(),
             pull: Pull {
                 mode:  PullMode::Parallel,
