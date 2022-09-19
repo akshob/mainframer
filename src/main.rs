@@ -46,7 +46,7 @@ fn main() {
 
     println!("Pushing...");
 
-    match sync::push(&local_dir_absolute_path, &config, &ignore) {
+    match sync::push(&local_dir_absolute_path, &config, &ignore, args.verbose) {
         Err(err) => exit_with_error(&format!("Push failed: {}, took {}", err.message, format_duration(err.duration)), 1),
         Ok(ok) => println!("Push done: took {}.\n", format_duration(ok.duration)),
     }
@@ -63,7 +63,7 @@ fn main() {
         2
     );
 
-    let pull_finished_rx = sync::pull(&local_dir_absolute_path, config.clone(), ignore, &config.pull.mode, remote_command_readers.pop().unwrap());
+    let pull_finished_rx = sync::pull(&local_dir_absolute_path, config.clone(), ignore, &config.pull.mode, remote_command_readers.pop().unwrap(), args.verbose);
 
     let remote_command_result = remote_command_readers
         .pop()
