@@ -3,7 +3,7 @@ use std::{path::Path, fs};
 use serde::{Deserialize};
 use crate::sync::PullMode;
 
-#[derive(Debug, PartialEq, Clone, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Deserialize)]
 pub struct Config {
     pub remote: Remote,
     #[serde(default)]
@@ -43,7 +43,7 @@ impl Config {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Deserialize)]
 pub struct Remote {
     pub host: String,
 }
@@ -66,7 +66,7 @@ impl Default for Push {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Deserialize)]
 pub struct Pull {
     #[serde(default = "Pull::default_compression")]
     pub compression: i8,
