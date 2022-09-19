@@ -1,6 +1,9 @@
+use std::io::Read;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
+use std::process::Output;
+use std::process::Stdio;
 use std::sync::mpsc::TryRecvError::*;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -58,7 +61,7 @@ pub struct PullErr {
     pub message: String,
 }
 
-pub fn push(local_dir_absolute_path: &Path, config: &Config, ignore: &Option<Ignore>) -> Result<PushOk, PushErr> {
+pub fn push(local_dir_absolute_path: &Path, config: &Config, ignore: &Option<Ignore>, verbose: bool) -> Result<PushOk, PushErr> {
     let start_time = Instant::now();
 
     let mut command = Command::new("rsync");
@@ -69,6 +72,10 @@ pub fn push(local_dir_absolute_path: &Path, config: &Config, ignore: &Option<Ign
         // Create (if not exists) project dir on remote machine.
         .arg(format!("--rsync-path=mkdir -p {} && rsync", project_dir_on_remote_machine(local_dir_absolute_path)))
         .arg(format!("--compress-level={}", config.push.compression));
+
+    if verbose {
+        command.arg("--verbose");
+    }
 
     if let Some(ignore) = ignore {
         apply_exclude_from(&mut command, ignore.push());
@@ -84,7 +91,7 @@ pub fn push(local_dir_absolute_path: &Path, config: &Config, ignore: &Option<Ign
         project_dir_on_remote_machine = project_dir_on_remote_machine(local_dir_absolute_path))
     );
 
-    match execute_rsync(&mut command) {
+    match execute_rsync(&mut command, verbose) {
         Err(reason) => Err(PushErr {
             duration: start_time.elapsed(),
             message: reason,
@@ -95,14 +102,14 @@ pub fn push(local_dir_absolute_path: &Path, config: &Config, ignore: &Option<Ign
     }
 }
 
-pub fn pull(local_dir_absolute_path: &Path, config: Config, ignore: Option<Ignore>, pull_mode: &PullMode, remote_command_finished_signal: BusReader<Result<RemoteCommandOk, RemoteCommandErr>>) -> Receiver<Result<PullOk, PullErr>> {
+pub fn pull(local_dir_absolute_path: &Path, config: Config, ignore: Option<Ignore>, pull_mode: &PullMode, remote_command_finished_signal: BusReader<Result<RemoteCommandOk, RemoteCommandErr>>, verbose: bool) -> Receiver<Result<PullOk, PullErr>> {
     match pull_mode {
-        PullMode::Serial => pull_serial(local_dir_absolute_path.to_path_buf(), config, ignore, remote_command_finished_signal),
-        PullMode::Parallel => pull_parallel(local_dir_absolute_path.to_path_buf(), config, ignore, PullMode::PARALLEL_DURATION, remote_command_finished_signal)
+        PullMode::Serial => pull_serial(local_dir_absolute_path.to_path_buf(), config, ignore, remote_command_finished_signal, verbose),
+        PullMode::Parallel => pull_parallel(local_dir_absolute_path.to_path_buf(), config, ignore, PullMode::PARALLEL_DURATION, remote_command_finished_signal, verbose)
     }
 }
 
-fn pull_serial(local_dir_absolute_path: PathBuf, config: Config, ignore: Option<Ignore>, mut remote_command_finished_rx: BusReader<Result<RemoteCommandOk, RemoteCommandErr>>) -> Receiver<Result<PullOk, PullErr>> {
+fn pull_serial(local_dir_absolute_path: PathBuf, config: Config, ignore: Option<Ignore>, mut remote_command_finished_rx: BusReader<Result<RemoteCommandOk, RemoteCommandErr>>, verbose: bool) -> Receiver<Result<PullOk, PullErr>> {
     let (pull_finished_tx, pull_finished_rx): (Sender<Result<PullOk, PullErr>>, Receiver<Result<PullOk, PullErr>>) = unbounded();
 
     #[allow(unused_must_use)] // We don't handle remote_command_result, in any case we need to pull after it.
@@ -112,20 +119,20 @@ fn pull_serial(local_dir_absolute_path: PathBuf, config: Config, ignore: Option<
             .expect("Could not receive remote_command_finished_rx");
 
         pull_finished_tx
-            .send(_pull(local_dir_absolute_path.as_path(), &config, &ignore))
+            .send(_pull(local_dir_absolute_path.as_path(), &config, &ignore, verbose))
             .expect("Could not send pull_finished signal");
     });
 
     pull_finished_rx
 }
 
-fn pull_parallel(local_dir_absolute_path: PathBuf, config: Config, ignore: Option<Ignore>, pause_between_pulls: Duration, mut remote_command_finished_signal: BusReader<Result<RemoteCommandOk, RemoteCommandErr>>) -> Receiver<Result<PullOk, PullErr>> {
+fn pull_parallel(local_dir_absolute_path: PathBuf, config: Config, ignore: Option<Ignore>, pause_between_pulls: Duration, mut remote_command_finished_signal: BusReader<Result<RemoteCommandOk, RemoteCommandErr>>, verbose: bool) -> Receiver<Result<PullOk, PullErr>> {
     let (pull_finished_tx, pull_finished_rx): (Sender<Result<PullOk, PullErr>>, Receiver<Result<PullOk, PullErr>>) = unbounded();
     let start_time = Instant::now();
 
     thread::spawn(move || {
         loop {
-            if let Err(pull_err) = _pull(local_dir_absolute_path.as_path(), &config, &ignore) {
+            if let Err(pull_err) = _pull(local_dir_absolute_path.as_path(), &config, &ignore, verbose) {
                 pull_finished_tx
                     .send(Err(pull_err)) // TODO handle code 24.
                     .expect("Could not send pull_finished signal");
@@ -144,7 +151,7 @@ fn pull_parallel(local_dir_absolute_path: PathBuf, config: Config, ignore: Optio
                     };
 
                     // Final pull after remote command to ensure consistency of the files.
-                    match _pull(local_dir_absolute_path.as_path(), &config, &ignore) {
+                    match _pull(local_dir_absolute_path.as_path(), &config, &ignore, verbose) {
                         Err(err) => pull_finished_tx
                             .send(Err(PullErr {
                                 duration: calculate_perceived_pull_duration(start_time.elapsed(), remote_command_duration),
@@ -168,7 +175,7 @@ fn pull_parallel(local_dir_absolute_path: PathBuf, config: Config, ignore: Optio
     pull_finished_rx
 }
 
-fn _pull(local_dir_absolute_path: &Path, config: &Config, ignore: &Option<Ignore>) -> Result<PullOk, PullErr> {
+fn _pull(local_dir_absolute_path: &Path, config: &Config, ignore: &Option<Ignore>, verbose: bool) -> Result<PullOk, PullErr> {
     let start_time = Instant::now();
 
     let mut command = Command::new("rsync");
@@ -177,6 +184,10 @@ fn _pull(local_dir_absolute_path: &Path, config: &Config, ignore: &Option<Ignore
         .arg("--archive")
         .arg("--delete")
         .arg(format!("--compress-level={}", config.pull.compression));
+
+    if verbose {
+        command.arg("--verbose");
+    }
 
     if let Some(ignore) = ignore {
         apply_exclude_from(&mut command, ignore.pull());
@@ -191,7 +202,7 @@ fn _pull(local_dir_absolute_path: &Path, config: &Config, ignore: &Option<Ignore
         )
         .arg("./");
 
-    match execute_rsync(&mut command) {
+    match execute_rsync(&mut command, verbose) {
         Err(reason) => Err(PullErr {
             duration: start_time.elapsed(),
             message: reason
@@ -212,8 +223,25 @@ fn apply_exclude_from(rsync_command: &mut Command, exclude_file: Vec<String>) {
     });
 }
 
-fn execute_rsync(rsync: &mut Command) -> Result<(), String> {
-    let result = rsync.output();
+fn execute_rsync(rsync: &mut Command, verbose_out: bool) -> Result<(), String> {
+    let result = if verbose_out {
+        let mut child = rsync.stderr(Stdio::piped()).spawn().unwrap();
+        let status = child.wait();
+        let status = status.expect("rsync failed to run");
+        let mut stderr = Vec::new();
+
+        if !status.success() {
+            let _ = child.stderr.take().expect("Failed to get stderr from rsync").read_to_end(&mut stderr);
+        }
+
+        Ok(Output {
+            status,
+            stdout: Vec::new(),
+            stderr,
+        })
+    } else {
+        rsync.output()
+    };
 
     match result {
         Err(_) => Err(String::from("Generic rsync error.")), // Rust doc doesn't really say when can an error occur.
