@@ -37,8 +37,17 @@ fn _execute_remote_command(remote_command: &str, config: &Config, project_dir_on
 
     let mut command = Command::new("ssh");
 
+    if let Some(port) = &config.remote.port {
+        command.arg(format!("-p{}", port));
+    }
+
+    if let Some(user) = &config.remote.user {
+        command.arg(format!("{}@{}", user, config.remote.host.clone()));
+    } else {
+        command.arg(config.remote.host.clone());
+    }
+
     command
-        .arg(config.remote.host.clone())
         .arg(format!(
             "echo 'set -e && cd {project_dir_on_remote_machine} && echo \"{remote_command}\" && echo \"\" && {remote_command}' | bash",
             project_dir_on_remote_machine = project_dir_on_remote_machine,
