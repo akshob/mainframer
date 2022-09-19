@@ -3,7 +3,7 @@ use std::{path::Path, fs};
 use serde::{Deserialize};
 use crate::sync::PullMode;
 
-#[derive(Debug, Eq, PartialEq, Clone, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Deserialize)]
 pub struct Config {
     pub remote: Remote,
     #[serde(default)]
