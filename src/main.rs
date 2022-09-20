@@ -12,6 +12,8 @@ use ignore::*;
 use sync::{PullMode};
 use time::*;
 use clap::Parser;
+use tracing::Level;
+use tracing_subscriber::FmtSubscriber;
 
 mod args;
 mod config;
@@ -23,9 +25,15 @@ mod time;
 // TODO use Reactive Streams instead of Channels.
 
 fn main() {
+    let subscriber = FmtSubscriber::builder()
+        .with_max_level(Level::INFO)
+        .finish();
+    
+    tracing::subscriber::set_global_default(subscriber).expect("Setting default subscriber failed!");
+
     let total_start = Instant::now();
 
-    println!(":: Mainframer v{}\n", env!("CARGO_PKG_VERSION"));
+    tracing::info!(":: Mainframer v{}", env!("CARGO_PKG_VERSION"));
 
     let args = Args::parse();
 
@@ -44,16 +52,16 @@ fn main() {
 
     let ignore = Ignore::from_working_dir(&local_dir_absolute_path);
 
-    println!("Pushing...");
+    tracing::info!("Pushing...");
 
     match sync::push(&local_dir_absolute_path, &config, &ignore, args.verbose) {
         Err(err) => exit_with_error(&format!("Push failed: {}, took {}", err.message, format_duration(err.duration)), 1),
-        Ok(ok) => println!("Push done: took {}.\n", format_duration(ok.duration)),
+        Ok(ok) => tracing::info!("Push done: took {}.", format_duration(ok.duration)),
     }
 
     match config.pull.mode {
-        PullMode::Serial => println!("Executing command on remote machine...\n"),
-        PullMode::Parallel => println!("Executing command on remote machine (pulling in parallel)...\n")
+        PullMode::Serial => tracing::info!("Executing command on remote machine..."),
+        PullMode::Parallel => tracing::info!("Executing command on remote machine (pulling in parallel)...")
     }
 
     let mut remote_command_readers = remote_command::execute_remote_command(
@@ -72,8 +80,14 @@ fn main() {
         .unwrap();
 
     match remote_command_result {
-        Err(ref err) => eprintln!("\nExecution failed: took {}.\nPulling...", format_duration(err.duration)),
-        Ok(ref ok) => println!("\nExecution done: took {}.\nPulling...", format_duration(ok.duration))
+        Err(ref err) => {
+            tracing::error!("\nExecution failed: took {}.", format_duration(err.duration));
+            tracing::info!("Pulling...");
+        },
+        Ok(ref ok) => {
+            tracing::info!("Execution done: took {}.", format_duration(ok.duration));
+            tracing::info!("Pulling...")
+        }
     }
 
     let pull_result = pull_finished_rx
@@ -83,20 +97,20 @@ fn main() {
     let total_duration = total_start.elapsed();
 
     match pull_result {
-        Err(ref err) => eprintln!("Pull failed: {}, took {}.", err.message, format_duration(err.duration)),
-        Ok(ref ok) => println!("Pull done: took {}", format_duration(ok.duration)),
+        Err(ref err) => tracing::error!("Pull failed: {}, took {}.", err.message, format_duration(err.duration)),
+        Ok(ref ok) => tracing::info!("Pull done: took {}", format_duration(ok.duration)),
     }
 
     if remote_command_result.is_err() || pull_result.is_err() {
         exit_with_error(&format!("\nFailure: took {}.", format_duration(total_duration)), 1);
     } else {
-        println!("\nSuccess: took {}.", format_duration(total_duration));
+        tracing::info!("Success: took {}.", format_duration(total_duration));
     }
 }
 
 fn exit_with_error(message: &str, code: i32) -> ! {
     if !message.is_empty() {
-        eprintln!("{}", message);
+        tracing::error!("{:?}", message);
     }
     process::exit(code);
 }
