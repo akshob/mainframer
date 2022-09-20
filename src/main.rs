@@ -7,11 +7,11 @@ use std::process;
 use std::time::Instant;
 
 use args::Args;
+use clap::Parser;
 use config::*;
 use ignore::*;
-use sync::{PullMode};
+use sync::PullMode;
 use time::*;
-use clap::Parser;
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
 
@@ -28,8 +28,9 @@ fn main() {
     let subscriber = FmtSubscriber::builder()
         .with_max_level(Level::INFO)
         .finish();
-    
-    tracing::subscriber::set_global_default(subscriber).expect("Setting default subscriber failed!");
+
+    tracing::subscriber::set_global_default(subscriber)
+        .expect("Setting default subscriber failed!");
 
     let total_start = Instant::now();
 
@@ -47,7 +48,7 @@ fn main() {
 
     let config = match Config::from_path(&config_file) {
         Err(error) => exit_with_error(&error, 1),
-        Ok(value) => value
+        Ok(value) => value,
     };
 
     let ignore = Ignore::from_working_dir(&local_dir_absolute_path);
@@ -55,35 +56,50 @@ fn main() {
     tracing::info!("Pushing...");
 
     match sync::push(&local_dir_absolute_path, &config, &ignore, args.verbose) {
-        Err(err) => exit_with_error(&format!("Push failed: {}, took {}", err.message, format_duration(err.duration)), 1),
+        Err(err) => exit_with_error(
+            &format!(
+                "Push failed: {}, took {}",
+                err.message,
+                format_duration(err.duration)
+            ),
+            1,
+        ),
         Ok(ok) => tracing::info!("Push done: took {}.", format_duration(ok.duration)),
     }
 
     match config.pull.mode {
         PullMode::Serial => tracing::info!("Executing command on remote machine..."),
-        PullMode::Parallel => tracing::info!("Executing command on remote machine (pulling in parallel)...")
+        PullMode::Parallel => {
+            tracing::info!("Executing command on remote machine (pulling in parallel)...")
+        }
     }
 
     let mut remote_command_readers = remote_command::execute_remote_command(
         args.command(),
         config.clone(),
         sync::project_dir_on_remote_machine(&local_dir_absolute_path),
-        2
+        2,
     );
 
-    let pull_finished_rx = sync::pull(&local_dir_absolute_path, config.clone(), ignore, &config.pull.mode, remote_command_readers.pop().unwrap(), args.verbose);
+    let pull_finished_rx = sync::pull(
+        &local_dir_absolute_path,
+        config.clone(),
+        ignore,
+        &config.pull.mode,
+        remote_command_readers.pop().unwrap(),
+        args.verbose,
+    );
 
-    let remote_command_result = remote_command_readers
-        .pop()
-        .unwrap()
-        .recv()
-        .unwrap();
+    let remote_command_result = remote_command_readers.pop().unwrap().recv().unwrap();
 
     match remote_command_result {
         Err(ref err) => {
-            tracing::error!("\nExecution failed: took {}.", format_duration(err.duration));
+            tracing::error!(
+                "\nExecution failed: took {}.",
+                format_duration(err.duration)
+            );
             tracing::info!("Pulling...");
-        },
+        }
         Ok(ref ok) => {
             tracing::info!("Execution done: took {}.", format_duration(ok.duration));
             tracing::info!("Pulling...")
@@ -97,12 +113,19 @@ fn main() {
     let total_duration = total_start.elapsed();
 
     match pull_result {
-        Err(ref err) => tracing::error!("Pull failed: {}, took {}.", err.message, format_duration(err.duration)),
+        Err(ref err) => tracing::error!(
+            "Pull failed: {}, took {}.",
+            err.message,
+            format_duration(err.duration)
+        ),
         Ok(ref ok) => tracing::info!("Pull done: took {}", format_duration(ok.duration)),
     }
 
     if remote_command_result.is_err() || pull_result.is_err() {
-        exit_with_error(&format!("\nFailure: took {}.", format_duration(total_duration)), 1);
+        exit_with_error(
+            &format!("\nFailure: took {}.", format_duration(total_duration)),
+            1,
+        );
     } else {
         tracing::info!("Success: took {}.", format_duration(total_duration));
     }
