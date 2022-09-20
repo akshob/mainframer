@@ -29,7 +29,7 @@ pub struct PushErr {
     pub message: String,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Deserialize)]
+#[derive(Debug, Eq, PartialEq, Clone, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum PullMode {
     /// Serial, after remote command execution.
