@@ -52,9 +52,11 @@ impl Config {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, Deserialize)]
+#[derive(Debug, Default, Eq, PartialEq, Clone, Deserialize)]
 pub struct Remote {
     pub host: String,
+    pub user: Option<String>,
+    pub port: Option<String>,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Deserialize)]
@@ -119,6 +121,7 @@ pull:
             Ok(Config {
                 remote: Remote {
                     host: String::from("computer1"),
+                    ..Default::default()
                 },
                 push: Push { compression: 5 },
                 pull: Pull {
@@ -146,6 +149,7 @@ pull:
             Ok(Config {
                 remote: Remote {
                     host: String::from("computer1"),
+                    ..Default::default()
                 },
                 push: Push { compression: 5 },
                 pull: Pull {
@@ -173,6 +177,7 @@ pull:
             Ok(Config {
                 remote: Remote {
                     host: String::from("computer1"),
+                    ..Default::default()
                 },
                 push: Push { compression: 5 },
                 pull: Pull {
@@ -194,6 +199,7 @@ remote:
             Ok(Config {
                 remote: Remote {
                     host: String::from("computer1"),
+                    ..Default::default()
                 },
                 push: Push::default(),
                 pull: Pull::default(),
@@ -224,7 +230,8 @@ remote:
                     Config::from_file_contents(&content),
                     Ok(Config {
                         remote: Remote {
-                            host: "computer1".to_string()
+                            host: "computer1".to_string(),
+                            ..Default::default()
                         },
                         push: if destination == "push" {
                             Push {
@@ -306,7 +313,8 @@ pull:
             Config::from_file_contents(content),
             Ok(Config {
                 remote: Remote {
-                    host: "computer1".to_string()
+                    host: "computer1".to_string(),
+                    ..Default::default()
                 },
                 push: Push::default(),
                 pull: Pull {
