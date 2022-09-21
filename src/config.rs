@@ -3,7 +3,7 @@ use std::{fs, path::Path};
 use crate::sync::PullMode;
 use serde::Deserialize;
 
-#[derive(Debug, PartialEq, Clone, Deserialize)]
+#[derive(Debug, Eq, PartialEq, Clone, Deserialize)]
 pub struct Config {
     pub remote: Remote,
     #[serde(default)]
@@ -22,7 +22,7 @@ impl Config {
     }
 
     #[inline(always)]
-    pub fn from_file_contents<'a>(contents: &'a str) -> Result<Self, String> {
+    pub fn from_file_contents(contents: &str) -> Result<Self, String> {
         serde_yaml::from_str::<Config>(contents)
             .map_err(|err| err.to_string())
             .and_then(|config| {
@@ -52,7 +52,7 @@ impl Config {
     }
 }
 
-#[derive(Debug, Default, PartialEq, Clone, Deserialize)]
+#[derive(Debug, Default, Eq, PartialEq, Clone, Deserialize)]
 pub struct Remote {
     pub host: String,
     pub user: Option<String>,
@@ -77,7 +77,7 @@ impl Default for Push {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Deserialize)]
+#[derive(Debug, Eq, PartialEq, Clone, Deserialize)]
 pub struct Pull {
     #[serde(default = "Pull::default_compression")]
     pub compression: i8,
