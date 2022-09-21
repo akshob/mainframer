@@ -102,7 +102,7 @@ fn main() {
         }
         Ok(ref ok) => {
             tracing::info!("Execution done: took {}.", format_duration(ok.duration));
-            tracing::info!("Pulling...")
+            tracing::info!("Pulling...");
         }
     }
 
