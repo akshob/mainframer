@@ -63,10 +63,16 @@ pub fn push(local_dir_absolute_path: &Path, config: &Config, ignore: &Ignore) ->
 
     let mut command = Command::new("rsync");
 
+    // TODO there's two rsync commmands in here
     command
         .arg("--archive")
-        .arg("--delete")
-        // Create (if not exists) project dir on remote machine.
+        .arg("--delete");
+
+    if let Some(port) = &config.remote.port {
+        command.arg(format!("-e ssh -p {port}"));
+    }
+
+    command
         .arg(format!("--rsync-path=mkdir -p {} && rsync", project_dir_on_remote_machine(local_dir_absolute_path)))
         .arg(format!("--compress-level={}", config.push.compression));
 
@@ -74,14 +80,21 @@ pub fn push(local_dir_absolute_path: &Path, config: &Config, ignore: &Ignore) ->
     apply_exclude_from(&mut command, &ignore.local_ignore_file);
 
     command
-        .arg("--rsh=ssh")
         .arg("./");
 
-    command.arg(format!(
-        "{remote_machine_name}:{project_dir_on_remote_machine}",
-        remote_machine_name = config.remote.host,
-        project_dir_on_remote_machine = project_dir_on_remote_machine(local_dir_absolute_path))
-    );
+    if let Some(user) = &config.remote.user {
+        command.arg(format!(
+            "{user}@{remote_machine_name}:{project_dir_on_remote_machine}",
+            remote_machine_name = config.remote.host,
+            project_dir_on_remote_machine = project_dir_on_remote_machine(local_dir_absolute_path))
+        );
+    }  else {
+        command.arg(format!(
+            "{remote_machine_name}:{project_dir_on_remote_machine}",
+            remote_machine_name = config.remote.host,
+            project_dir_on_remote_machine = project_dir_on_remote_machine(local_dir_absolute_path))
+        );
+    }
 
     match execute_rsync(&mut command) {
         Err(reason) => Err(PushErr {
@@ -177,17 +190,28 @@ fn _pull(local_dir_absolute_path: &Path, config: &Config, ignore: &Ignore) -> Re
         .arg("--delete")
         .arg(format!("--compress-level={}", config.pull.compression));
 
+    if let Some(port) = &config.remote.port {
+        command.arg(format!("-e ssh -p {port}"));
+    }
+
     apply_exclude_from(&mut command, &ignore.common_ignore_file);
     apply_exclude_from(&mut command, &ignore.remote_ignore_file);
 
-    command
-        .arg("--rsh=ssh")
-        .arg(format!(
-            "{remote_machine_name}:{project_dir_on_remote_machine}/",
+    if let Some(user) = &config.remote.user {
+        command.arg(format!(
+            "{user}@{remote_machine_name}:{project_dir_on_remote_machine}",
             remote_machine_name = config.remote.host,
             project_dir_on_remote_machine = project_dir_on_remote_machine(local_dir_absolute_path))
-        )
-        .arg("./");
+        );
+    }  else {
+        command.arg(format!(
+            "{remote_machine_name}:{project_dir_on_remote_machine}",
+            remote_machine_name = config.remote.host,
+            project_dir_on_remote_machine = project_dir_on_remote_machine(local_dir_absolute_path))
+        );
+    }
+
+    command.arg("./");
 
     match execute_rsync(&mut command) {
         Err(reason) => Err(PullErr {

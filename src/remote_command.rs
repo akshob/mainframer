@@ -38,7 +38,7 @@ fn _execute_remote_command(remote_command: &str, config: &Config, project_dir_on
     let mut command = Command::new("ssh");
 
     if let Some(port) = &config.remote.port {
-        command.arg(format!("-p{}", port));
+        command.arg(format!("-p {port}"));
     }
 
     if let Some(user) = &config.remote.user {
