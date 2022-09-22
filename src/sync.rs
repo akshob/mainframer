@@ -13,6 +13,7 @@ use crossbeam_channel::unbounded;
 use crossbeam_channel::Receiver;
 use crossbeam_channel::Sender;
 use serde::Deserialize;
+use tracing::info;
 
 use crate::config::Config;
 use crate::ignore::Ignore;
@@ -80,7 +81,7 @@ pub fn push(
     command
         .arg(format!(
             "--rsync-path=mkdir -p {} && rsync",
-            project_dir_on_remote_machine(local_dir_absolute_path)
+            project_dir_on_remote_machine(&config, local_dir_absolute_path)
         ))
         .arg(format!("--compress-level={}", config.push.compression));
 
@@ -92,17 +93,19 @@ pub fn push(
         apply_exclude_from(&mut command, ignore.push());
     }
 
+    command.arg("./");
+
     if let Some(user) = &config.remote.user {
         command.arg(format!(
             "{user}@{remote_machine_name}:{project_dir_on_remote_machine}",
             remote_machine_name = config.remote.host,
-            project_dir_on_remote_machine = project_dir_on_remote_machine(local_dir_absolute_path)
+            project_dir_on_remote_machine = project_dir_on_remote_machine(&config, local_dir_absolute_path)
         ));
     } else {
         command.arg(format!(
             "{remote_machine_name}:{project_dir_on_remote_machine}",
             remote_machine_name = config.remote.host,
-            project_dir_on_remote_machine = project_dir_on_remote_machine(local_dir_absolute_path)
+            project_dir_on_remote_machine = project_dir_on_remote_machine(&config, local_dir_absolute_path)
         ));
     }
 
@@ -274,13 +277,13 @@ fn _pull(
         command.arg(format!(
             "{user}@{remote_machine_name}:{project_dir_on_remote_machine}",
             remote_machine_name = config.remote.host,
-            project_dir_on_remote_machine = project_dir_on_remote_machine(local_dir_absolute_path)
+            project_dir_on_remote_machine = project_dir_on_remote_machine(&config, local_dir_absolute_path)
         ));
     } else {
         command.arg(format!(
             "{remote_machine_name}:{project_dir_on_remote_machine}",
             remote_machine_name = config.remote.host,
-            project_dir_on_remote_machine = project_dir_on_remote_machine(local_dir_absolute_path)
+            project_dir_on_remote_machine = project_dir_on_remote_machine(&config, local_dir_absolute_path)
         ));
     }
 
@@ -297,8 +300,12 @@ fn _pull(
     }
 }
 
-pub fn project_dir_on_remote_machine(local_dir_absolute_path: &Path) -> String {
-    format!("~/mainframer{}", local_dir_absolute_path.to_string_lossy())
+pub fn project_dir_on_remote_machine(config: &Config, local_dir_absolute_path: &Path) -> String {
+    if let Some(path) = &config.remote.path {
+        path.clone()
+    } else {
+        format!("~/mainframer{}", local_dir_absolute_path.to_string_lossy())
+    }
 }
 
 fn apply_exclude_from(rsync_command: &mut Command, exclude_file: Vec<String>) {
@@ -309,6 +316,7 @@ fn apply_exclude_from(rsync_command: &mut Command, exclude_file: Vec<String>) {
 
 fn execute_rsync(rsync: &mut Command, verbose_out: bool) -> Result<(), String> {
     let result = if verbose_out {
+        info!("Executing {:?}", rsync);
         let mut child = rsync.stderr(Stdio::piped()).spawn().unwrap();
         let status = child.wait();
         let status = status.expect("rsync failed to run");

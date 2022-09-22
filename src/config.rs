@@ -57,6 +57,7 @@ pub struct Remote {
     pub host: String,
     pub user: Option<String>,
     pub port: Option<String>,
+    pub path: Option<String>,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Deserialize)]
