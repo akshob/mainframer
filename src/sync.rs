@@ -81,7 +81,7 @@ pub fn push(
     command
         .arg(format!(
             "--rsync-path=mkdir -p {} && rsync",
-            project_dir_on_remote_machine(&config, local_dir_absolute_path)
+            project_dir_on_remote_machine(config, local_dir_absolute_path)
         ))
         .arg(format!("--compress-level={}", config.push.compression));
 
@@ -99,13 +99,13 @@ pub fn push(
         command.arg(format!(
             "{user}@{remote_machine_name}:{project_dir_on_remote_machine}",
             remote_machine_name = config.remote.host,
-            project_dir_on_remote_machine = project_dir_on_remote_machine(&config, local_dir_absolute_path)
+            project_dir_on_remote_machine = project_dir_on_remote_machine(config, local_dir_absolute_path)
         ));
     } else {
         command.arg(format!(
             "{remote_machine_name}:{project_dir_on_remote_machine}",
             remote_machine_name = config.remote.host,
-            project_dir_on_remote_machine = project_dir_on_remote_machine(&config, local_dir_absolute_path)
+            project_dir_on_remote_machine = project_dir_on_remote_machine(config, local_dir_absolute_path)
         ));
     }
 
@@ -277,13 +277,13 @@ fn _pull(
         command.arg(format!(
             "{user}@{remote_machine_name}:{project_dir_on_remote_machine}",
             remote_machine_name = config.remote.host,
-            project_dir_on_remote_machine = project_dir_on_remote_machine(&config, local_dir_absolute_path)
+            project_dir_on_remote_machine = project_dir_on_remote_machine(config, local_dir_absolute_path)
         ));
     } else {
         command.arg(format!(
             "{remote_machine_name}:{project_dir_on_remote_machine}",
             remote_machine_name = config.remote.host,
-            project_dir_on_remote_machine = project_dir_on_remote_machine(&config, local_dir_absolute_path)
+            project_dir_on_remote_machine = project_dir_on_remote_machine(config, local_dir_absolute_path)
         ));
     }
 
