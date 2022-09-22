@@ -65,7 +65,7 @@ pub fn push(
     local_dir_absolute_path: &Path,
     config: &Config,
     ignore: &Option<Ignore>,
-    verbose: bool,
+    verbose: u8,
 ) -> Result<PushOk, PushErr> {
     let start_time = Instant::now();
 
@@ -84,7 +84,7 @@ pub fn push(
         ))
         .arg(format!("--compress-level={}", config.push.compression));
 
-    if verbose {
+    for _ in 0..verbose {
         command.arg("--verbose");
     }
 
@@ -106,7 +106,9 @@ pub fn push(
         ));
     }
 
-    match execute_rsync(&mut command, verbose) {
+    tracing::trace!("Executing rsync push: {:?}", command);
+
+    match execute_rsync(&mut command, verbose > 0) {
         Err(reason) => Err(PushErr {
             duration: start_time.elapsed(),
             message: reason,
@@ -123,7 +125,7 @@ pub fn pull(
     ignore: Option<Ignore>,
     pull_mode: &PullMode,
     remote_command_finished_signal: BusReader<Result<RemoteCommandOk, RemoteCommandErr>>,
-    verbose: bool,
+    verbose: u8,
 ) -> Receiver<Result<PullOk, PullErr>> {
     match pull_mode {
         PullMode::Serial => pull_serial(
@@ -149,7 +151,7 @@ fn pull_serial(
     config: Config,
     ignore: Option<Ignore>,
     mut remote_command_finished_rx: BusReader<Result<RemoteCommandOk, RemoteCommandErr>>,
-    verbose: bool,
+    verbose: u8,
 ) -> Receiver<Result<PullOk, PullErr>> {
     let (pull_finished_tx, pull_finished_rx): (
         Sender<Result<PullOk, PullErr>>,
@@ -182,7 +184,7 @@ fn pull_parallel(
     ignore: Option<Ignore>,
     pause_between_pulls: Duration,
     mut remote_command_finished_signal: BusReader<Result<RemoteCommandOk, RemoteCommandErr>>,
-    verbose: bool,
+    verbose: u8,
 ) -> Receiver<Result<PullOk, PullErr>> {
     let (pull_finished_tx, pull_finished_rx): (
         Sender<Result<PullOk, PullErr>>,
@@ -247,7 +249,7 @@ fn _pull(
     local_dir_absolute_path: &Path,
     config: &Config,
     ignore: &Option<Ignore>,
-    verbose: bool,
+    verbose: u8,
 ) -> Result<PullOk, PullErr> {
     let start_time = Instant::now();
 
@@ -262,7 +264,7 @@ fn _pull(
         command.arg(format!("-e ssh -p {port}"));
     }
 
-    if verbose {
+    for _ in 0..verbose {
         command.arg("--verbose");
     }
 
@@ -286,7 +288,9 @@ fn _pull(
 
     command.arg("./");
 
-    match execute_rsync(&mut command, verbose) {
+    tracing::trace!("Executing rsync pull: {:?}", command);
+
+    match execute_rsync(&mut command, verbose > 0) {
         Err(reason) => Err(PullErr {
             duration: start_time.elapsed(),
             message: reason,

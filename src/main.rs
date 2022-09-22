@@ -25,18 +25,25 @@ mod time;
 // TODO use Reactive Streams instead of Channels.
 
 fn main() {
-    let subscriber = FmtSubscriber::builder()
-        .with_max_level(Level::INFO)
-        .finish();
+    let total_start = Instant::now();
+
+    let args = Args::parse();
+
+    let log_level = match args.verbose {
+        0 => Level::INFO,
+        1 => Level::DEBUG,
+        2 | _ => Level::TRACE,
+    };
+
+    let subscriber = FmtSubscriber::builder().with_max_level(log_level).finish();
 
     tracing::subscriber::set_global_default(subscriber)
         .expect("Setting default subscriber failed!");
 
-    let total_start = Instant::now();
+    // let main_span = info_span!("main.rs");
+    // let _guard = main_span.enter();
 
     tracing::info!(":: Mainframer v{}", env!("CARGO_PKG_VERSION"));
-
-    let args = Args::parse();
 
     let local_dir_absolute_path = match env::current_dir() {
         Err(_) => exit_with_error("Could not resolve working directory, make sure it exists and user has enough permissions to work with it.", 1),
@@ -94,10 +101,7 @@ fn main() {
 
     match remote_command_result {
         Err(ref err) => {
-            tracing::error!(
-                "\nExecution failed: took {}.",
-                format_duration(err.duration)
-            );
+            tracing::error!("Execution failed: took {}.", format_duration(err.duration));
             tracing::info!("Pulling...");
         }
         Ok(ref ok) => {
@@ -123,7 +127,7 @@ fn main() {
 
     if remote_command_result.is_err() || pull_result.is_err() {
         exit_with_error(
-            &format!("\nFailure: took {}.", format_duration(total_duration)),
+            &format!("Failure: took {}.", format_duration(total_duration)),
             1,
         );
     } else {
@@ -133,7 +137,7 @@ fn main() {
 
 fn exit_with_error(message: &str, code: i32) -> ! {
     if !message.is_empty() {
-        tracing::error!("{:?}", message);
+        tracing::error!("{}", message);
     }
     process::exit(code);
 }
