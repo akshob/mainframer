@@ -84,7 +84,9 @@ pub fn push(
         ))
         .arg(format!("--compress-level={}", config.push.compression));
 
-    for _ in 0..verbose {
+    for i in 0..verbose {
+        //Don't add more than two --verbose to rsync, unless you want to debug rsync
+        if i == 2 { break };
         command.arg("--verbose");
     }
 
@@ -264,7 +266,9 @@ fn _pull(
         command.arg(format!("-e ssh -p {port}"));
     }
 
-    for _ in 0..verbose {
+    for i in 0..verbose {
+        //Don't add more than two --verbose to rsync, unless you want to debug rsync
+        if i == 2 { break };
         command.arg("--verbose");
     }
 
