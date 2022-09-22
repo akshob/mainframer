@@ -32,7 +32,8 @@ fn main() {
     let log_level = match args.verbose {
         0 => Level::INFO,
         1 => Level::DEBUG,
-        2 | _ => Level::TRACE,
+        2 => Level::TRACE,
+        _ => Level::TRACE,
     };
 
     let subscriber = FmtSubscriber::builder().with_max_level(log_level).finish();
