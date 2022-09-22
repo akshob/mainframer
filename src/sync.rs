@@ -86,7 +86,9 @@ pub fn push(
 
     for i in 0..verbose {
         //Don't add more than two --verbose to rsync, unless you want to debug rsync
-        if i == 2 { break };
+        if i == 2 {
+            break;
+        };
         command.arg("--verbose");
     }
 
@@ -268,7 +270,9 @@ fn _pull(
 
     for i in 0..verbose {
         //Don't add more than two --verbose to rsync, unless you want to debug rsync
-        if i == 2 { break };
+        if i == 2 {
+            break;
+        };
         command.arg("--verbose");
     }
 
