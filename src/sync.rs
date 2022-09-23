@@ -98,7 +98,7 @@ pub fn push(
 
     command.arg("./");
 
-    if let Some(user) = &config.remote.user {
+    if let Some(user) = &config.push.user {
         command.arg(format!(
             "{user}@{remote_machine_name}:{project_dir_on_remote_machine}",
             remote_machine_name = config.remote.host,
@@ -284,7 +284,7 @@ fn _pull(
         apply_exclude_from(&mut command, ignore.pull());
     }
 
-    if let Some(user) = &config.remote.user {
+    if let Some(user) = &config.pull.user {
         command.arg(format!(
             "{user}@{remote_machine_name}:{project_dir_on_remote_machine}",
             remote_machine_name = config.remote.host,
