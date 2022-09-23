@@ -1,3 +1,5 @@
+use std::io;
+use std::io::Write;
 use std::process::Command;
 use std::process::Stdio;
 use std::thread;
@@ -42,6 +44,26 @@ pub fn execute_remote_command(
     readers
 }
 
+struct Message;
+
+impl Write for Message {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let buffer_string = String::from_utf8_lossy(buf);
+        let split_string = buffer_string.split('\n');
+        for s in split_string {
+            if s.is_empty() || s == "\n" {
+                continue;
+            }
+            tracing::info!("{}", s);
+        }
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
 fn _execute_remote_command(
     remote_command: &str,
     config: &Config,
@@ -70,10 +92,17 @@ fn _execute_remote_command(
 
     let mut process = command
         // Interactively pipe ssh output to Mainframer output.
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
         .spawn()
         .unwrap();
+
+    let mut message = Message;
+    io::copy(&mut process.stdout.take().unwrap(), &mut message)
+        .expect("Couldn't copy ssh command's stdout");
+    let mut err_message = Message;
+    io::copy(&mut process.stderr.take().unwrap(), &mut err_message)
+        .expect("Couldn't copy ssh command's stderr");
 
     match process.wait() {
         Err(_) => Err(RemoteCommandErr {

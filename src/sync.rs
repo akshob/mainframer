@@ -1,8 +1,8 @@
-use std::io::Read;
+use std::io;
+use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
-use std::process::Output;
 use std::process::Stdio;
 use std::sync::mpsc::TryRecvError::*;
 use std::thread;
@@ -13,7 +13,6 @@ use crossbeam_channel::unbounded;
 use crossbeam_channel::Receiver;
 use crossbeam_channel::Sender;
 use serde::Deserialize;
-use tracing::info;
 
 use crate::config::Config;
 use crate::ignore::Ignore;
@@ -115,9 +114,9 @@ pub fn push(
         ));
     }
 
-    tracing::trace!("Executing rsync push: {:?}", command);
+    tracing::debug!("Executing rsync push: {:?}", command);
 
-    match execute_rsync(&mut command, verbose > 0) {
+    match execute_rsync(&mut command) {
         Err(reason) => Err(PushErr {
             duration: start_time.elapsed(),
             message: reason,
@@ -303,9 +302,9 @@ fn _pull(
 
     command.arg("./");
 
-    tracing::trace!("Executing rsync pull: {:?}", command);
+    tracing::debug!("Executing rsync pull: {:?}", command);
 
-    match execute_rsync(&mut command, verbose > 0) {
+    match execute_rsync(&mut command) {
         Err(reason) => Err(PullErr {
             duration: start_time.elapsed(),
             message: reason,
@@ -330,32 +329,41 @@ fn apply_exclude_from(rsync_command: &mut Command, exclude_file: Vec<String>) {
     });
 }
 
-fn execute_rsync(rsync: &mut Command, verbose_out: bool) -> Result<(), String> {
-    let result = if verbose_out {
-        info!("Executing {:?}", rsync);
-        let mut child = rsync.stderr(Stdio::piped()).spawn().unwrap();
-        let status = child.wait();
-        let status = status.expect("rsync failed to run");
-        let mut stderr = Vec::new();
+struct Message;
 
-        if !status.success() {
-            let _ = child
-                .stderr
-                .take()
-                .expect("Failed to get stderr from rsync")
-                .read_to_end(&mut stderr);
+impl Write for Message {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let buffer_string = String::from_utf8_lossy(buf);
+        let split_string = buffer_string.split('\n');
+        for s in split_string {
+            if s.is_empty() || s == "\n" {
+                continue;
+            }
+            tracing::debug!("{}", s);
         }
+        Ok(buf.len())
+    }
 
-        Ok(Output {
-            status,
-            stdout: Vec::new(),
-            stderr,
-        })
-    } else {
-        rsync.output()
-    };
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
 
-    match result {
+fn execute_rsync(rsync: &mut Command) -> Result<(), String> {
+    let mut result = rsync
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+
+    let mut message = Message;
+    io::copy(&mut result.stdout.take().unwrap(), &mut message)
+        .expect("Couldn't copy rsync result's stdout");
+    let mut err_message = Message;
+    io::copy(&mut result.stderr.take().unwrap(), &mut err_message)
+        .expect("Couldn't copy rsync result's stderr");
+
+    match result.wait_with_output() {
         Err(_) => Err(String::from("Generic rsync error.")), // Rust doc doesn't really say when can an error occur.
         Ok(output) => match output.status.code() {
             None => Err(String::from("rsync was terminated.")),
@@ -370,7 +378,7 @@ fn execute_rsync(rsync: &mut Command, verbose_out: bool) -> Result<(), String> {
                     )
                 )
             }
-        }
+        },
     }
 }
 
