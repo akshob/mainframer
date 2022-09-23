@@ -286,14 +286,14 @@ fn _pull(
 
     if let Some(user) = &config.pull.user {
         command.arg(format!(
-            "{user}@{remote_machine_name}:{project_dir_on_remote_machine}",
+            "{user}@{remote_machine_name}:{project_dir_on_remote_machine}/",
             remote_machine_name = config.remote.host,
             project_dir_on_remote_machine =
                 project_dir_on_remote_machine(config, local_dir_absolute_path)
         ));
     } else {
         command.arg(format!(
-            "{remote_machine_name}:{project_dir_on_remote_machine}",
+            "{remote_machine_name}:{project_dir_on_remote_machine}/",
             remote_machine_name = config.remote.host,
             project_dir_on_remote_machine =
                 project_dir_on_remote_machine(config, local_dir_absolute_path)
