@@ -131,7 +131,10 @@ pull:
                     host: String::from("computer1"),
                     ..Default::default()
                 },
-                push: Push { compression: 5, ..Default::default() },
+                push: Push {
+                    compression: 5,
+                    ..Default::default()
+                },
                 pull: Pull {
                     compression: 2,
                     mode: PullMode::Serial,
@@ -160,7 +163,10 @@ pull:
                     host: String::from("computer1"),
                     ..Default::default()
                 },
-                push: Push { compression: 5, ..Default::default() },
+                push: Push {
+                    compression: 5,
+                    ..Default::default()
+                },
                 pull: Pull {
                     compression: 2,
                     mode: PullMode::Serial,
@@ -189,7 +195,10 @@ pull:
                     host: String::from("computer1"),
                     ..Default::default()
                 },
-                push: Push { compression: 5, ..Default::default() },
+                push: Push {
+                    compression: 5,
+                    ..Default::default()
+                },
                 pull: Pull {
                     compression: 2,
                     mode: PullMode::Serial,
