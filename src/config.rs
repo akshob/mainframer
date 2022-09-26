@@ -53,6 +53,7 @@ impl Config {
 }
 
 #[derive(Debug, Default, Eq, PartialEq, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Remote {
     pub host: String,
     pub user: Option<String>,
@@ -64,6 +65,7 @@ pub struct Remote {
 pub struct Push {
     #[serde(default = "Push::default_compression")]
     pub compression: i8,
+    pub user: Option<String>,
 }
 
 impl Push {
@@ -74,7 +76,10 @@ impl Push {
 
 impl Default for Push {
     fn default() -> Self {
-        Self { compression: 3 }
+        Self {
+            compression: 3,
+            user: None,
+        }
     }
 }
 
@@ -84,6 +89,7 @@ pub struct Pull {
     pub compression: i8,
     #[serde(default)]
     pub mode: PullMode,
+    pub user: Option<String>,
 }
 
 impl Pull {
@@ -97,6 +103,7 @@ impl Default for Pull {
         Self {
             compression: 1,
             mode: PullMode::default(),
+            user: None,
         }
     }
 }
@@ -124,10 +131,14 @@ pull:
                     host: String::from("computer1"),
                     ..Default::default()
                 },
-                push: Push { compression: 5 },
+                push: Push {
+                    compression: 5,
+                    ..Default::default()
+                },
                 pull: Pull {
                     compression: 2,
                     mode: PullMode::Serial,
+                    ..Default::default()
                 },
             })
         );
@@ -152,10 +163,14 @@ pull:
                     host: String::from("computer1"),
                     ..Default::default()
                 },
-                push: Push { compression: 5 },
+                push: Push {
+                    compression: 5,
+                    ..Default::default()
+                },
                 pull: Pull {
                     compression: 2,
                     mode: PullMode::Serial,
+                    ..Default::default()
                 },
             })
         );
@@ -180,10 +195,14 @@ pull:
                     host: String::from("computer1"),
                     ..Default::default()
                 },
-                push: Push { compression: 5 },
+                push: Push {
+                    compression: 5,
+                    ..Default::default()
+                },
                 pull: Pull {
                     compression: 2,
                     mode: PullMode::Serial,
+                    ..Default::default()
                 },
             })
         );
@@ -237,6 +256,7 @@ remote:
                         push: if destination == "push" {
                             Push {
                                 compression: compression_level,
+                                ..Default::default()
                             }
                         } else {
                             Push::default()
